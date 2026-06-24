@@ -125,6 +125,45 @@ def elimina_prodotto(codice: str, db: Session = Depends(get_db)):
 
 from datetime import datetime
 
+# NUOVO: Endpoint per modificare i dettagli di un prodotto esistente
+@app.put("/api/prodotti/{codice}")
+async def modifica_prodotto(
+    codice: str,
+    nome: str = Form(...),
+    prezzo_acquisto: float = Form(...),
+    prezzo_pubblico: float = Form(...),
+    foto: UploadFile = File(None),
+    db: Session = Depends(get_db)
+    ):
+    prodotto = db.query(models.Prodotto).filter(models.Prodotto.codice_a_barre == codice).first()
+    if not prodotto:
+        raise HTTPException(status_code=404, detail="Prodotto non trovato")
+    
+    # Aggiorna i dati testuali e i prezzi
+    prodotto.nome = nome
+    prodotto.prezzo_acquisto = prezzo_acquisto
+    prodotto.prezzo_pubblico = prezzo_pubblico
+    
+    # Se è stata caricata una nuova foto, sostituisci la precedente
+    if foto and foto.filename:
+        # Elimina la vecchia foto dal disco se presente per non accumulare spazzatura
+        if prodotto.foto_path:
+            vecchio_percorso = prodotto.foto_path.lstrip("/")
+            if os.path.exists(vecchio_percorso):
+                os.remove(vecchio_percorso)
+        
+        # Salva la nuova foto con un nome unico
+        estensione = foto.filename.split(".")[-1]
+        nome_file_univoco = f"{uuid.uuid4()}.{estensione}"
+        percorso_fisico = f"static/uploads/{nome_file_univoco}"
+        with open(percorso_fisico, "wb") as buffer:
+            shutil.copyfileobj(foto.file, buffer)
+        prodotto.foto_path = f"/{percorso_fisico}"
+        
+    db.commit()
+    db.refresh(prodotto)
+    return prodotto
+
 # Endpoint vendita:
 @app.post("/api/vendita")
 def concludi_vendita(voci: List[VoceCarrello], db: Session = Depends(get_db)):

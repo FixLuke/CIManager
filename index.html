@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionale Magazzino</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="/static/js/tailwind.js"></script>
+    <script src="/static/js/html5-qrcode.min.js" type="text/javascript"></script>
+    <script src="/static/js/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
 
@@ -75,17 +75,20 @@
                 </div>
                 
                 <button type="submit" id="btn-submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition mt-6 text-lg shadow-lg">
-                    💾 Salva / Rifornisci
+                    💾 Salva Nuovo Prodotto
                 </button>
             </form>
         </div>
 
         <div id="schermata-magazzino" class="hidden">
             <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div class="flex-1 w-full flex gap-2">
-                    <input type="text" id="barra-ricerca" onkeyup="filtraProdotti()" placeholder="Cerca nel magazzino..." class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                
+                <div class="flex-1 w-full flex gap-2 relative">
+                    <input type="text" id="barra-ricerca" onkeyup="mostraSuggerimenti('magazzino')" placeholder="Cerca nome o codice..." class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
                     <button type="button" onclick="avviaScanner('barra-ricerca', false, true, false)" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex-shrink-0">📷</button>
+                    <div id="dropdown-magazzino" class="hidden absolute top-full left-0 w-full bg-white border border-gray-200 rounded-b shadow-2xl z-50 max-h-60 overflow-y-auto mt-1 divide-y divide-gray-100"></div>
                 </div>
+
                 <button onclick="caricaProdotti()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded w-full md:w-auto transition">🔄 Aggiorna Lista</button>
             </div>
             <div id="lista-prodotti" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -94,11 +97,14 @@
         <div id="schermata-carrello" class="hidden max-w-4xl mx-auto">
             
             <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div class="flex-1 w-full flex gap-2">
-                    <input type="text" id="input-carrello" placeholder="Digita o scansiona per vendere..." class="w-full border border-green-300 p-3 rounded text-lg focus:ring-2 focus:ring-green-500 outline-none" onkeypress="gestisciInvioCarrello(event)">
-                    <button type="button" onclick="aggiungiDaInputCarrello()" class="bg-green-600 text-white px-6 font-bold rounded hover:bg-green-700">Aggiungi</button>
+                
+                <div class="flex-1 w-full flex gap-2 relative">
+                    <input type="text" id="input-carrello" placeholder="Digita nome o scansiona per vendere..." class="w-full border border-green-300 p-3 rounded text-lg focus:ring-2 focus:ring-green-500 outline-none" onkeyup="mostraSuggerimenti('carrello')" onkeypress="gestisciInvioCarrello(event)">
+                    <button type="button" onclick="appendiDaInputCarrello()" class="bg-green-600 text-white px-6 font-bold rounded hover:bg-green-700">Aggiungi</button>
                     <button type="button" onclick="avviaScanner('input-carrello', false, false, true)" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700">📷</button>
+                    <div id="dropdown-carrello" class="hidden absolute top-full left-0 w-full bg-white border border-gray-200 rounded-b shadow-2xl z-50 max-h-60 overflow-y-auto mt-1 divide-y divide-gray-100"></div>
                 </div>
+
                 <button onclick="apriStorico()" class="bg-purple-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-purple-700 shadow-md transition whitespace-nowrap w-full sm:w-auto">
                     🧾 Storico Vendite
                 </button>
@@ -107,7 +113,7 @@
             <div class="bg-white rounded-lg shadow-md p-4 mb-6 min-h-[200px]">
                 <h3 class="font-bold text-gray-700 border-b pb-2 mb-4">Prodotti nel Carrello</h3>
                 <div id="lista-carrello" class="flex flex-col gap-3">
-                    <p class="text-gray-400 text-center italic mt-10">Il carrello è vuoto. Scansiona un prodotto per iniziare.</p>
+                    <p class="text-gray-400 text-center italic mt-10">Il carrello è vuoto. Scansiona o cerca un prodotto per iniziare.</p>
                 </div>
             </div>
 
@@ -135,26 +141,60 @@
                 <h3 class="text-xl font-bold text-gray-800">🧾 Registro Vendite</h3>
                 <button onclick="document.getElementById('modal-storico').classList.add('hidden')" class="text-red-500 hover:bg-red-100 rounded-full w-8 h-8 font-bold text-xl flex items-center justify-center transition">&times;</button>
             </div>
-            <div id="lista-storico" class="overflow-y-auto flex-1 flex flex-col gap-2">
-                </div>
+            <div id="lista-storico" class="overflow-y-auto flex-1 flex flex-col gap-2"></div>
         </div>
     </div>
 
     <div id="modal-scontrino" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg p-6 w-full max-w-sm">
             <div class="flex justify-end gap-2 mb-4 border-b pb-2">
-                <button onclick="stampaScontrino()" class="bg-blue-600 text-white px-3 py-1 rounded font-bold hover:bg-blue-700 flex items-center gap-2">Stampa PDF</button>
+                <button onclick="stampaScontrino()" class="bg-blue-600 text-white px-3 py-1 rounded font-bold hover:bg-blue-700 flex items-center gap-2">🖨️ Stampa PDF</button>
                 <button onclick="document.getElementById('modal-scontrino').classList.add('hidden')" class="bg-red-500 text-white px-3 py-1 rounded font-bold hover:bg-red-600">Chiudi</button>
             </div>
-            <div id="area-stampa-scontrino" class="p-4 border bg-yellow-50 font-mono text-sm text-gray-800">
+            <div id="area-stampa-scontrino" class="p-4 border bg-yellow-50 font-mono text-sm text-gray-800"></div>
+        </div>
+    </div>
+
+    <div id="modal-modifica" class="hidden fixed inset-0 bg-black bg-opacity-75 z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-xl font-bold text-gray-800">📝 Modifica Articolo</h3>
+                <button onclick="document.getElementById('modal-modifica').classList.add('hidden')" class="text-red-500 hover:bg-red-100 rounded-full w-8 h-8 font-bold text-xl flex items-center justify-center transition">&times;</button>
+            </div>
+            <form id="form-modifica" class="space-y-4" enctype="multipart/form-data" onsubmit="salvaModifica(event)">
+                <input type="hidden" id="modifica_codice">
+                <div>
+                    <label class="block text-sm text-gray-600 font-bold">Codice a Barre (Immutabile)</label>
+                    <input type="text" id="modifica_codice_visualizzato" disabled class="w-full bg-gray-100 border border-gray-300 p-2 rounded mt-1 outline-none text-gray-500 font-mono">
                 </div>
+                <div>
+                    <label class="block text-sm text-gray-600 font-bold">Nome Prodotto</label>
+                    <input type="text" id="modifica_nome" required class="w-full border border-gray-300 p-2 rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-600 font-bold">Prz. Acquisto (€)</label>
+                        <input type="number" step="0.01" id="modifica_p_acquisto" required class="w-full border border-gray-300 p-2 rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 font-bold">Prz. Pubblico (€)</label>
+                        <input type="number" step="0.01" id="modifica_p_pubblico" required class="w-full border border-gray-300 p-2 rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 font-bold">Nuova Foto (Lascia vuoto per mantenere l'attuale)</label>
+                    <input type="file" id="modifica_foto" accept="image/*" capture="environment" class="w-full border border-gray-300 p-2 rounded mt-1 bg-gray-50">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition mt-6 text-lg shadow-lg">
+                    💾 Aggiorna Informazioni
+                </button>
+            </form>
         </div>
     </div>
 
     <script>
         const baseUrl = "/api/prodotti";
         
-        // Variabili globali per scanner e logica UI
         let html5QrcodeScanner = null;
         let campoDestinazione = null;
         let avviaControlloEsistenza = false;
@@ -162,8 +202,18 @@
         let avviaAggiuntaCarrello = false;
         
         let carrello = {}; 
+        let scontrinoCorrenteId = '';
+        let scontrinoCorrenteData = '';
+        
+        // NUOVO: Variabile per salvare tutti i prodotti in memoria per la ricerca veloce
+        let catalogoProdotti = [];
 
-        // --- GESTIONE SCHERMATE E NAVIGAZIONE ---
+        // Carica i dati in background appena si apre la pagina
+        window.addEventListener('DOMContentLoaded', () => {
+            caricaProdotti();
+        });
+
+        // --- GESTIONE SCHERMATE ---
         function cambiaSchermata(schermata) {
             document.getElementById('schermata-inserimento').classList.add('hidden');
             document.getElementById('schermata-magazzino').classList.add('hidden');
@@ -189,7 +239,81 @@
             }
         }
 
-        // --- GESTIONE FOTOCAMERA SCANNER ---
+        // --- NUOVO: LOGICA AUTOCOMPLETAMENTO ---
+        function mostraSuggerimenti(contesto) {
+            const idInput = contesto === 'magazzino' ? 'barra-ricerca' : 'input-carrello';
+            const idDropdown = contesto === 'magazzino' ? 'dropdown-magazzino' : 'dropdown-carrello';
+            const inputVal = document.getElementById(idInput).value.toLowerCase().trim();
+            const dropdown = document.getElementById(idDropdown);
+
+            // Filtra localmente le card del magazzino mentre si digita
+            if (contesto === 'magazzino') filtraProdotti();
+
+            if (inputVal.length === 0) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            // Cerca nel catalogo per nome o per codice a barre
+            const risultati = catalogoProdotti.filter(p => 
+                p.nome.toLowerCase().includes(inputVal) || 
+                p.codice_a_barre.toLowerCase().includes(inputVal)
+            );
+
+            if (risultati.length === 0) {
+                dropdown.innerHTML = '<div class="p-3 text-gray-500 text-sm italic">Nessun prodotto corrispondente</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            // Costruisce la lista a tendina
+            dropdown.innerHTML = '';
+            risultati.forEach(p => {
+                const riga = document.createElement('div');
+                riga.className = "p-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center transition";
+                
+                const imgSrc = p.foto_path ? p.foto_path : 'https://via.placeholder.com/40';
+                const prezzo = contesto === 'carrello' ? p.prezzo_pubblico : p.prezzo_acquisto;
+                
+                riga.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <img src="${imgSrc}" class="w-10 h-10 object-cover rounded shadow-sm border border-gray-200">
+                        <div>
+                            <div class="font-bold text-gray-800">${p.nome}</div>
+                            <div class="text-xs text-gray-500 font-mono">${p.codice_a_barre} - Disp: ${p.quantita}pz</div>
+                        </div>
+                    </div>
+                    <div class="text-sm font-bold text-blue-600">€${prezzo.toFixed(2)}</div>
+                `;
+                
+                // Cosa succede quando clicchi una voce della tendina
+                riga.onclick = () => {
+                    if (contesto === 'magazzino') {
+                        document.getElementById(idInput).value = p.codice_a_barre; // Compila la barra
+                        dropdown.classList.add('hidden');
+                        filtraProdotti(); // Isola la scheda nel magazzino
+                    } else if (contesto === 'carrello') {
+                        document.getElementById(idInput).value = ''; // Svuota la barra
+                        dropdown.classList.add('hidden');
+                        aggiungiProdottoAlCarrello(p.codice_a_barre); // Lo butta nel carrello!
+                        document.getElementById(idInput).focus();
+                    }
+                };
+                dropdown.appendChild(riga);
+            });
+
+            dropdown.classList.remove('hidden');
+        }
+
+        // Nascondi le tendine se l'utente clicca da un'altra parte nello schermo
+        document.addEventListener('click', function(event) {
+            const dropM = document.getElementById('dropdown-magazzino');
+            const dropC = document.getElementById('dropdown-carrello');
+            if (dropM && !event.target.closest('.relative')) dropM.classList.add('hidden');
+            if (dropC && !event.target.closest('.relative')) dropC.classList.add('hidden');
+        });
+
+        // --- SCANNER FOTOCAMERA ---
         function avviaScanner(idCampo, isControllo = false, isRicerca = false, isCarrello = false) {
             campoDestinazione = idCampo;
             avviaControlloEsistenza = isControllo;
@@ -227,7 +351,7 @@
             document.getElementById('scanner-modal').classList.add('hidden');
         }
 
-        // --- LOGICA INSERIMENTO (SCHERMATA 1) ---
+        // --- INSERIMENTO (SCHERMATA 1) ---
         async function controllaSeEsiste() {
             const codice = document.getElementById('codice_a_barre').value.trim();
             if (codice.length === 0) { resettaStatoNuovo(); return; }
@@ -250,7 +374,7 @@
                 } else { 
                     resettaStatoNuovo(); 
                 }
-            } catch (error) { console.error(error); }
+            } catch (error) {}
         }
 
         function resettaStatoNuovo() {
@@ -270,6 +394,7 @@
                 if (response.ok) {
                     formElement.reset();
                     resettaStatoNuovo();
+                    caricaProdotti(); // Aggiorna il catalogo in background
                     alert("✅ Operazione completata!");
                 } else {
                     const errorData = await response.json();
@@ -278,14 +403,21 @@
             } catch (error) { alert("Errore connessione"); }
         });
 
-        // --- LOGICA MAGAZZINO (SCHERMATA 2) ---
+        // --- MAGAZZINO (SCHERMATA 2) ---
         async function caricaProdotti() {
             const contenitore = document.getElementById('lista-prodotti');
-            contenitore.innerHTML = '<p class="text-blue-500 font-bold col-span-full">Caricamento...</p>';
+            if (!document.getElementById('schermata-magazzino').classList.contains('hidden')) {
+                contenitore.innerHTML = '<p class="text-blue-500 font-bold col-span-full">Caricamento...</p>';
+            }
+            
             try {
                 const response = await fetch(baseUrl);
                 if (!response.ok) throw new Error();
                 const prodotti = await response.json();
+                
+                // Salviamo i prodotti per l'autocompletamento
+                catalogoProdotti = prodotti; 
+                
                 contenitore.innerHTML = '';
                 if (prodotti.length === 0) {
                     contenitore.innerHTML = '<p class="text-gray-500 col-span-full">Nessun prodotto in magazzino.</p>';
@@ -294,7 +426,7 @@
                 prodotti.forEach(p => {
                     const urlFoto = p.foto_path ? p.foto_path : 'https://via.placeholder.com/300x200?text=Nessuna+Foto';
                     contenitore.innerHTML += `
-                        <div class="prodotto-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200" 
+                        <div id="card-${p.codice_a_barre}" class="prodotto-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200 transition-all duration-300 transform" 
                              data-nome="${p.nome.toLowerCase()}" data-codice="${p.codice_a_barre.toLowerCase()}">
                             <img src="${urlFoto}" alt="${p.nome}" class="h-48 w-full object-cover">
                             <div class="p-4 flex-1 flex flex-col">
@@ -304,13 +436,16 @@
                                     <p>Acquisto: <strong class="text-gray-800">€${p.prezzo_acquisto.toFixed(2)}</strong></p>
                                     <p class="text-blue-700 text-base">Pubblico: <strong>€${p.prezzo_pubblico.toFixed(2)}</strong></p>
                                 </div>
-                                <div class="flex items-center justify-between mt-auto pt-3 border-t">
+                                <div class="flex items-center justify-between mt-auto pt-3 border-t gap-2">
                                     <div class="flex items-center gap-3">
-                                        <button onclick="cambiaQuantita('${p.codice_a_barre}', -1)" class="bg-red-100 text-red-600 w-10 h-10 rounded-full font-bold text-lg hover:bg-red-200">-</button>
-                                        <span class="text-2xl font-bold w-10 text-center">${p.quantita}</span>
-                                        <button onclick="cambiaQuantita('${p.codice_a_barre}', 1)" class="bg-green-100 text-green-600 w-10 h-10 rounded-full font-bold text-lg hover:bg-green-200">+</button>
+                                        <button onclick="cambiaQuantita('${p.codice_a_barre}', -1)" class="bg-red-100 text-red-600 w-10 h-10 rounded-full font-bold text-lg hover:bg-red-200 transition">-</button>
+                                        <span id="qta-${p.codice_a_barre}" class="text-2xl font-bold w-10 text-center">${p.quantita}</span>
+                                        <button onclick="cambiaQuantita('${p.codice_a_barre}', 1)" class="bg-green-100 text-green-600 w-10 h-10 rounded-full font-bold text-lg hover:bg-green-200 transition">+</button>
                                     </div>
-                                    <button onclick="eliminaProdotto('${p.codice_a_barre}')" class="text-red-500 hover:text-red-700 text-sm font-semibold">Elimina</button>
+                                    <div class="flex gap-2 text-sm font-semibold">
+                                        <button onclick="apriModifica('${p.codice_a_barre}')" class="text-blue-500 hover:text-blue-700 hover:underline">Modifica</button>
+                                        <button onclick="eliminaProdotto('${p.codice_a_barre}')" class="text-red-500 hover:text-red-700 hover:underline">Elimina</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>`;
@@ -334,32 +469,107 @@
         }
 
         async function cambiaQuantita(codice, variazione) {
-            await fetch(`${baseUrl}/${codice}/quantita?variazione=${variazione}`, { method: 'PUT' });
-            caricaProdotti();
+            try {
+                const response = await fetch(`${baseUrl}/${codice}/quantita?variazione=${variazione}`, { method: 'PUT' });
+                if (response.ok) {
+                    const spanQta = document.getElementById(`qta-${codice}`);
+                    if (spanQta) {
+                        let nuovaQta = parseInt(spanQta.innerText) + variazione;
+                        if (nuovaQta < 0) nuovaQta = 0; 
+                        spanQta.innerText = nuovaQta;
+                    }
+                    // Aggiorniamo anche il catalogo silenziosamente in background
+                    const prod = catalogoProdotti.find(p => p.codice_a_barre === codice);
+                    if(prod) prod.quantita = parseInt(spanQta.innerText);
+                }
+            } catch (error) { alert("Errore aggiornamento quantità."); }
         }
 
         async function eliminaProdotto(codice) {
             if(confirm("Sei sicuro di voler eliminare definitivamente questo prodotto?")) {
-                await fetch(`${baseUrl}/${codice}`, { method: 'DELETE' });
-                caricaProdotti();
+                try {
+                    const response = await fetch(`${baseUrl}/${codice}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        const card = document.getElementById(`card-${codice}`);
+                        if (card) {
+                            card.style.opacity = '0';
+                            card.style.transform = 'scale(0.8)';
+                            setTimeout(() => { 
+                                card.remove(); 
+                                catalogoProdotti = catalogoProdotti.filter(p => p.codice_a_barre !== codice);
+                            }, 300);
+                        }
+                    }
+                } catch (error) { alert("Errore eliminazione."); }
             }
         }
 
-        // --- LOGICA CARRELLO / VENDITA (SCHERMATA 3) ---
+        // --- MODIFICA ARTICOLO ---
+        async function apriModifica(codice) {
+            try {
+                const response = await fetch(`${baseUrl}/${codice}`);
+                if (response.ok) {
+                    const p = await response.json();
+                    document.getElementById('modifica_codice').value = p.codice_a_barre;
+                    document.getElementById('modifica_codice_visualizzato').value = p.codice_a_barre;
+                    document.getElementById('modifica_nome').value = p.nome;
+                    document.getElementById('modifica_p_acquisto').value = p.prezzo_acquisto;
+                    document.getElementById('modifica_p_pubblico').value = p.prezzo_pubblico;
+                    document.getElementById('modifica_foto').value = ''; 
+                    document.getElementById('modal-modifica').classList.remove('hidden');
+                } else {
+                    alert("Impossibile recuperare i dettagli dell'articolo.");
+                }
+            } catch (error) { alert("Errore di rete."); }
+        }
+
+        async function salvaModifica(event) {
+            event.preventDefault();
+            const codice = document.getElementById('modifica_codice').value;
+            const datiForm = new FormData();
+            datiForm.append('nome', document.getElementById('modifica_nome').value);
+            datiForm.append('prezzo_acquisto', document.getElementById('modifica_p_acquisto').value);
+            datiForm.append('prezzo_pubblico', document.getElementById('modifica_p_pubblico').value);
+            
+            const fileInput = document.getElementById('modifica_foto');
+            if (fileInput.files.length > 0) {
+                datiForm.append('foto', fileInput.files[0]);
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/${codice}`, {
+                    method: 'PUT',
+                    body: datiForm
+                });
+
+                if (response.ok) {
+                    alert("✅ Prodotto aggiornato con successo!");
+                    document.getElementById('modal-modifica').classList.add('hidden');
+                    caricaProdotti(); 
+                } else {
+                    const err = await response.json();
+                    alert("❌ Errore: " + err.detail);
+                }
+            } catch (error) { alert("Errore di connessione."); }
+        }
+
+        // --- CARRELLO / VENDITA (SCHERMATA 3) ---
         function gestisciInvioCarrello(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
-                aggiungiDaInputCarrello();
+                appendiDaInputCarrello();
             }
         }
 
-        function aggiungiDaInputCarrello() {
+        function appendiDaInputCarrello() {
             const input = document.getElementById('input-carrello');
             const codice = input.value.trim();
             if(codice) {
                 aggiungiProdottoAlCarrello(codice);
                 input.value = ''; 
                 input.focus();
+                // Nasconde la tendina
+                document.getElementById('dropdown-carrello').classList.add('hidden');
             }
         }
 
@@ -369,7 +579,7 @@
                     carrello[codice].quantita++;
                     aggiornaUICarrello();
                 } else {
-                    alert(`Hai raggiunto la quantità massima disponibile per: ${carrello[codice].nome}`);
+                    alert(`Giacenza massima raggiunta per: ${carrello[codice].nome}`);
                 }
                 return;
             }
@@ -391,10 +601,10 @@
                         aggiornaUICarrello();
                         try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU').play(); } catch(e){}
                     } else {
-                        alert(`Il prodotto "${prodotto.nome}" è Esaurito!`);
+                        alert(`L'articolo "${prodotto.nome}" è esaurito!`);
                     }
                 } else {
-                    alert("Prodotto non trovato!");
+                    alert("Articolo non censito a sistema!");
                 }
             } catch (error) { alert("Errore di connessione."); }
         }
@@ -419,7 +629,7 @@
             const codici = Object.keys(carrello);
 
             if (codici.length === 0) {
-                contenitore.innerHTML = '<p class="text-gray-400 text-center italic mt-10">Il carrello è vuoto. Scansiona un prodotto per iniziare.</p>';
+                contenitore.innerHTML = '<p class="text-gray-400 text-center italic mt-10">Il carrello è vuoto. Scansiona o cerca un prodotto per iniziare.</p>';
                 document.getElementById('totale-carrello').innerText = "€0.00";
                 return;
             }
@@ -479,6 +689,7 @@
                     alert(`✅ Vendita conclusa! Registrato Scontrino N. ${data.id_vendita}`);
                     carrello = {}; 
                     aggiornaUICarrello();
+                    caricaProdotti(); // Sincronizza subito le giacenze per il prossimo ordine
                 } else {
                     const err = await response.json();
                     alert("❌ Errore durante la vendita: " + err.detail);
@@ -486,7 +697,7 @@
             } catch (error) { alert("Errore di connessione."); }
         }
 
-        // --- LOGICA STORICO VENDITE E SCONTRINI PDF ---
+        // --- STORICO E PDF ---
         async function apriStorico() {
             document.getElementById('modal-storico').classList.remove('hidden');
             const contenitore = document.getElementById('lista-storico');
@@ -530,6 +741,13 @@
                 const vendita = await res.json();
                 
                 const dataObj = new Date(vendita.data_ora);
+                
+                scontrinoCorrenteId = vendita.id;
+                const giorno = String(dataObj.getDate()).padStart(2, '0');
+                const mese = String(dataObj.getMonth() + 1).padStart(2, '0');
+                const anno = dataObj.getFullYear();
+                scontrinoCorrenteData = `${giorno}-${mese}-${anno}`;
+
                 const areaStampa = document.getElementById('area-stampa-scontrino');
                 
                 let htmlScontrino = `
@@ -559,21 +777,21 @@
                         <span>TOTALE</span>
                         <span>€${vendita.totale.toFixed(2)}</span>
                     </div>
+                    <p class="text-center text-xs mt-8">Grazie per l'acquisto!</p>
                 `;
                 
                 areaStampa.innerHTML = htmlScontrino;
                 document.getElementById('modal-scontrino').classList.remove('hidden');
                 
-            } catch(e) {
-                alert("Errore nel recupero dello scontrino.");
-            }
+            } catch(e) { alert("Errore nel recupero dello scontrino."); }
         }
 
         function stampaScontrino() {
             const elemento = document.getElementById('area-stampa-scontrino');
+            const nomeFileDinamico = `scontrino_${scontrinoCorrenteId}_${scontrinoCorrenteData}.pdf`;
             const opt = {
                 margin:       0.2,
-                filename:     'scontrino.pdf',
+                filename:     nomeFileDinamico,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2 },
                 jsPDF:        { unit: 'in', format: [3, 5], orientation: 'portrait' } 
