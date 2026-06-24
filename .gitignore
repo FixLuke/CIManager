@@ -1,0 +1,16 @@
+# Ambienti virtuali e cache
+venv/
+__pycache__/
+
+# Database locale
+*.db
+magazzino.db
+
+# Eseguibili esterni
+ngrok.exe
+
+# File caricati dinamicamente nel gestionale
+static/uploads/
+
+# Sicurezza: Certificati SSL e chiavi private
+*.pem

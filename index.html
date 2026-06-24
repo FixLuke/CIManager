@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionale Magazzino</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <nav class="bg-blue-600 text-white p-4 shadow-md">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <h1 class="text-xl font-bold">📦 Magazzino Locale</h1>
+            <div class="flex gap-2">
+                <button onclick="cambiaSchermata('inserimento')" id="btn-inserimento" class="px-4 py-2 bg-blue-800 rounded font-semibold hover:bg-blue-700 transition">
+                    ➕ Nuovo / Rifornimento
+                </button>
+                <button onclick="cambiaSchermata('magazzino')" id="btn-magazzino" class="px-4 py-2 bg-blue-500 rounded font-semibold hover:bg-blue-700 transition">
+                    🗄️ Vedi Magazzino
+                </button>
+            </div>
+            <span id="stato-server" class="text-sm bg-gray-500 px-2 py-1 rounded hidden md:block">In attesa...</span>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 mt-4">
+        
+        <div id="schermata-inserimento" class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md block">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2">Scansiona o Inserisci Prodotto</h2>
+            
+            <div id="banner-esistente" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 flex items-center gap-4">
+                <img id="anteprima-foto-esistente" src="" class="h-16 w-16 object-cover rounded shadow">
+                <div>
+                    <strong class="font-bold">Prodotto in archivio!</strong>
+                    <span class="block sm:inline">Dati precompilati. Scegli solo quante unità aggiungere al magazzino.</span>
+                </div>
+            </div>
+
+            <form id="form-prodotto" class="space-y-4" enctype="multipart/form-data">
+                
+                <div>
+                    <label class="block text-sm text-gray-600 font-bold">Codice a Barre</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="text" id="codice_a_barre" name="codice_a_barre" required onblur="controllaSeEsiste()" placeholder="Digita o scansiona..." class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                        <button type="button" onclick="avviaScanner('codice_a_barre', true)" class="bg-gray-800 text-white px-4 rounded hover:bg-gray-700">
+                            📷 Scansiona
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-gray-600 font-bold">Nome Prodotto</label>
+                    <input type="text" id="nome" name="nome" required class="w-full border border-gray-300 p-2 rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 font-bold">Quantità da Aggiungere</label>
+                    <input type="number" id="quantita" name="quantita" value="1" required class="w-full border border-green-400 bg-green-50 p-2 rounded mt-1 focus:ring-2 focus:ring-green-500 outline-none font-bold text-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-600 font-bold">Prz. Acquisto (€)</label>
+                        <input type="number" step="0.01" id="p_acquisto" name="prezzo_acquisto" required class="w-full border border-gray-300 p-2 rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 font-bold">Prz. Pubblico (€)</label>
+                        <input type="number" step="0.01" id="p_pubblico" name="prezzo_pubblico" required class="w-full border border-gray-300 p-2 rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+
+                <div id="sezione-foto">
+                    <label class="block text-sm text-gray-600 font-bold">Scatta/Carica Foto (Lascia vuoto se già presente)</label>
+                    <input type="file" id="foto" name="foto" accept="image/*" capture="environment" class="w-full border border-gray-300 p-2 rounded mt-1 bg-gray-50">
+                </div>
+                
+                <button type="submit" id="btn-submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition mt-6 text-lg shadow-lg">
+                    💾 Salva / Rifornisci
+                </button>
+            </form>
+        </div>
+
+        <div id="schermata-magazzino" class="hidden">
+            <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="flex-1 w-full flex gap-2">
+                    <input type="text" id="barra-ricerca" onkeyup="filtraProdotti()" placeholder="Cerca per nome o codice..." class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                    <button type="button" onclick="avviaScanner('barra-ricerca', false, true)" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex-shrink-0">
+                        📷 Scansiona
+                    </button>
+                </div>
+                <button onclick="caricaProdotti()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded w-full md:w-auto transition">
+                    🔄 Aggiorna Lista
+                </button>
+            </div>
+            
+            <div id="lista-prodotti" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+    </div>
+
+    <div id="scanner-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-4 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4 text-center">Inquadra il Codice a Barre</h3>
+            <div id="reader" width="100%"></div>
+            <button onclick="chiudiScanner()" class="mt-4 w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700">Chiudi</button>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = "/api/prodotti";
+        let html5QrcodeScanner = null;
+        let campoDestinazione = null;
+        let avviaControlloEsistenza = false;
+        let avviaRicercaAutomatica = false;
+
+        function cambiaSchermata(schermata) {
+            document.getElementById('schermata-inserimento').classList.add('hidden');
+            document.getElementById('schermata-magazzino').classList.add('hidden');
+            document.getElementById('btn-inserimento').className = "px-4 py-2 bg-blue-500 rounded font-semibold hover:bg-blue-700 transition";
+            document.getElementById('btn-magazzino').className = "px-4 py-2 bg-blue-500 rounded font-semibold hover:bg-blue-700 transition";
+
+            if (schermata === 'inserimento') {
+                document.getElementById('schermata-inserimento').classList.remove('hidden');
+                document.getElementById('btn-inserimento').classList.add('bg-blue-800');
+                // Resetta il form se torniamo all'inserimento
+                document.getElementById('form-prodotto').reset();
+                resettaStatoNuovo();
+            } else if (schermata === 'magazzino') {
+                document.getElementById('schermata-magazzino').classList.remove('hidden');
+                document.getElementById('btn-magazzino').classList.add('bg-blue-800');
+                caricaProdotti();
+            }
+        }
+
+        // --- NUOVO: FUNZIONI DI CONTROLLO PRODOTTO ---
+
+        async function controllaSeEsiste() {
+            const codice = document.getElementById('codice_a_barre').value.trim();
+            if (codice.length === 0) {
+                resettaStatoNuovo();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/${codice}`);
+                if (response.ok) {
+                    const p = await response.json();
+                    
+                    // Precompila i campi
+                    document.getElementById('nome').value = p.nome;
+                    document.getElementById('p_acquisto').value = p.prezzo_acquisto;
+                    document.getElementById('p_pubblico').value = p.prezzo_pubblico;
+                    document.getElementById('quantita').value = 1; // Default a 1 per facilitare l'aggiunta
+
+                    // Mostra banner e anteprima immagine
+                    document.getElementById('banner-esistente').classList.remove('hidden');
+                    const imgUrl = p.foto_path ? p.foto_path : 'https://via.placeholder.com/150?text=Senza+Foto';
+                    document.getElementById('anteprima-foto-esistente').src = imgUrl;
+
+                    // Cambia colore al bottone
+                    const btn = document.getElementById('btn-submit');
+                    btn.className = "w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700 transition mt-6 text-lg shadow-lg";
+                    btn.innerHTML = "📦 Rifornisci Magazzino (+ Quantità)";
+
+                    // Nasconde il campo foto per non fare confusione
+                    document.getElementById('sezione-foto').classList.add('hidden');
+
+                } else {
+                    // Non esiste, si tratta di un prodotto nuovo
+                    resettaStatoNuovo();
+                }
+            } catch (error) {
+                console.error("Errore di rete durante il controllo", error);
+            }
+        }
+
+        function resettaStatoNuovo() {
+            document.getElementById('banner-esistente').classList.add('hidden');
+            document.getElementById('sezione-foto').classList.remove('hidden');
+            
+            const btn = document.getElementById('btn-submit');
+            btn.className = "w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition mt-6 text-lg shadow-lg";
+            btn.innerHTML = "💾 Salva Nuovo Prodotto";
+            
+            // Non svuotiamo i campi testuali per non cancellare quello che l'utente sta scrivendo se si è sbagliato
+        }
+
+        // --- GESTIONE FOTOCAMERA SCANNER ---
+        function avviaScanner(idCampo, avviaControllo = false, avviaRicerca = false) {
+            campoDestinazione = idCampo;
+            avviaControlloEsistenza = avviaControllo;
+            avviaRicercaAutomatica = avviaRicerca;
+            
+            document.getElementById('scanner-modal').classList.remove('hidden');
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                alert("Errore fotocamera. Verifica permessi o usa HTTPS.");
+                chiudiScanner();
+            });
+        }
+
+        function onScanSuccess(testoDecodificato) {
+            document.getElementById(campoDestinazione).value = testoDecodificato;
+            chiudiScanner();
+            try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU').play(); } catch(e){}
+            
+            // Se eravamo nel form di inserimento, controlla subito nel database
+            if(avviaControlloEsistenza) controllaSeEsiste();
+            // Se eravamo nel magazzino, filtra subito
+            if(avviaRicercaAutomatica) filtraProdotti();
+        }
+
+        function chiudiScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                }).catch(err => console.error(err));
+            }
+            document.getElementById('scanner-modal').classList.add('hidden');
+        }
+
+        // --- SALVATAGGIO DATI ---
+        document.getElementById('form-prodotto').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formElement = document.getElementById('form-prodotto');
+            const datiForm = new FormData(formElement);
+
+            try {
+                const response = await fetch(baseUrl, { method: 'POST', body: datiForm });
+                if (response.ok) {
+                    formElement.reset();
+                    resettaStatoNuovo();
+                    alert("✅ Operazione completata con successo!");
+                } else {
+                    const errorData = await response.json();
+                    alert("❌ Errore: " + errorData.detail);
+                }
+            } catch (error) {
+                alert("Errore di connessione durante il salvataggio.");
+            }
+        });
+
+        // --- FUNZIONI MAGAZZINO GIA' ESISTENTI ---
+        async function caricaProdotti() {
+            const contenitore = document.getElementById('lista-prodotti');
+            contenitore.innerHTML = '<p class="text-blue-500 font-bold col-span-full">Caricamento...</p>';
+            try {
+                const response = await fetch(baseUrl);
+                if (!response.ok) throw new Error();
+                const prodotti = await response.json();
+                contenitore.innerHTML = '';
+                if (prodotti.length === 0) {
+                    contenitore.innerHTML = '<p class="text-gray-500 col-span-full">Nessun prodotto in magazzino.</p>';
+                    return;
+                }
+                prodotti.forEach(p => {
+                    const urlFoto = p.foto_path ? p.foto_path : 'https://via.placeholder.com/300x200?text=Nessuna+Foto';
+                    const card = `
+                        <div class="prodotto-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200" 
+                             data-nome="${p.nome.toLowerCase()}" data-codice="${p.codice_a_barre.toLowerCase()}">
+                            <img src="${urlFoto}" alt="${p.nome}" class="h-48 w-full object-cover">
+                            <div class="p-4 flex-1 flex flex-col">
+                                <h3 class="font-bold text-xl mb-1 text-gray-800">${p.nome}</h3>
+                                <p class="text-xs text-gray-500 mb-2 font-mono bg-gray-100 inline-block px-2 py-1 rounded">${p.codice_a_barre}</p>
+                                <div class="text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded border">
+                                    <p>Acquisto: <strong class="text-gray-800">€${p.prezzo_acquisto.toFixed(2)}</strong></p>
+                                    <p class="text-blue-700 text-base">Pubblico: <strong>€${p.prezzo_pubblico.toFixed(2)}</strong></p>
+                                </div>
+                                <div class="flex items-center justify-between mt-auto pt-3 border-t">
+                                    <div class="flex items-center gap-3">
+                                        <button onclick="cambiaQuantita('${p.codice_a_barre}', -1)" class="bg-red-100 text-red-600 w-10 h-10 rounded-full font-bold text-lg hover:bg-red-200">-</button>
+                                        <span class="text-2xl font-bold w-10 text-center">${p.quantita}</span>
+                                        <button onclick="cambiaQuantita('${p.codice_a_barre}', 1)" class="bg-green-100 text-green-600 w-10 h-10 rounded-full font-bold text-lg hover:bg-green-200">+</button>
+                                    </div>
+                                    <button onclick="eliminaProdotto('${p.codice_a_barre}')" class="text-red-500 hover:text-red-700 hover:underline text-sm font-semibold">Elimina</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    contenitore.innerHTML += card;
+                });
+                document.getElementById('stato-server').className = "text-sm bg-green-500 px-2 py-1 rounded text-white hidden md:block";
+                document.getElementById('stato-server').innerText = "Connesso";
+                if(avviaRicercaAutomatica) filtraProdotti();
+            } catch (e) {
+                document.getElementById('stato-server').className = "text-sm bg-red-500 px-2 py-1 rounded text-white hidden md:block";
+                document.getElementById('stato-server').innerText = "Errore Server";
+            }
+        }
+
+        function filtraProdotti() {
+            const input = document.getElementById('barra-ricerca').value.toLowerCase();
+            const cards = document.querySelectorAll('.prodotto-card');
+            cards.forEach(card => {
+                const nome = card.getAttribute('data-nome');
+                const codice = card.getAttribute('data-codice');
+                card.style.display = (nome.includes(input) || codice.includes(input)) ? 'flex' : 'none';
+            });
+        }
+
+        async function cambiaQuantita(codice, variazione) {
+            await fetch(`${baseUrl}/${codice}/quantita?variazione=${variazione}`, { method: 'PUT' });
+            caricaProdotti();
+        }
+
+        async function eliminaProdotto(codice) {
+            if(confirm("Sei sicuro di voler eliminare definitivamente questo prodotto?")) {
+                await fetch(`${baseUrl}/${codice}`, { method: 'DELETE' });
+                caricaProdotti();
+            }
+        }
+    </script>
+</body>
+</html>
