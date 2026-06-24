@@ -96,12 +96,14 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
 
 2) copia il file "rootCA.pem" e invialo allo smartphone
 
-3) Su Android: Vai in Impostazioni > Sicurezza > Altre impostazioni > Installa da memoria e seleziona Certificato CA.
+3) Per caricarlo su smartphone: 
 
-3B) Su iOS: Scarica il file da Safari, installalo dalla voce Profilo scaricato in alto nelle Impostazioni, poi vai su Generali > Info > Attendibilità certificati e abilita l'interruttore di piena fiducia per il profilo mkcert.
+**Su Android:** Vai in Impostazioni > Sicurezza > Altre impostazioni > Installa da memoria e seleziona Certificato CA.
+
+**Su iOS:** Scarica il file da Safari, installalo dalla voce Profilo scaricato in alto nelle Impostazioni, poi vai su Generali > Info > Attendibilità certificati e abilita l'interruttore di piena fiducia per il profilo mkcert.
+
 ----------------
-PER L'ESECUZIONE DA TUTTI GLI HOST DELLA RETE UTILIZZARE:
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
 
 PER INVECE AVVIARE IL SERVER SU QUESTA STESSA MACCHINA E VEDERLO QUI (MAGARI PER TESTARLO):
 uvicorn main:app --reload
