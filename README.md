@@ -55,6 +55,7 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
 
 1) Se è la prima volta che si usa mkcert
     ```
+    winget install FiloSottile.mkcert
     mkcert -install
     ```
 2) Trovare l'IP locale del dispositivo sul quale stiamo avviando il software (es. 192.168.1.56)
@@ -103,7 +104,16 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
 **Su iOS:** Scarica il file da Safari, installalo dalla voce Profilo scaricato in alto nelle Impostazioni, poi vai su Generali > Info > Attendibilità certificati e abilita l'interruttore di piena fiducia per il profilo mkcert.
 
 ----------------
-
-
-PER AVVIARE IL SERVER SU QUESTA STESSA MACCHINA E VEDERLO QUI (MAGARI PER TESTARLO):
-uvicorn main:app --reload
+## IN CASO DI PROBLEMI CON VENV (PERMESSI POWERSHELL)
+    ```
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -> questo dovrebbe risolverlo definitivo
+    ```
+## Per andare in VENV
+    ```
+    .\venv\Scripts\activate
+    ```
+## PER AVVIARE IL SERVER SU QUESTA STESSA MACCHINA E VEDERLO QUI (MAGARI PER TESTARLO):
+    ```
+    uvicorn main:app --reload
+    ```
