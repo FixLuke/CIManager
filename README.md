@@ -1,6 +1,6 @@
 # Gestionale Magazzino Locale (CIManager)
 
-Ssoftware Gestionale pronto all'uso con backend in Python (FastAPI) e frontend (HTML5/Tailwind), Progettato per funzionare in modo sicuro con HTTPS all'interno di una rete locale, anche senza connessione internet, quindi il sistema girerà tutto su server locale, e potrà essere poi utilizzato dagli host della rete (con il relativo certificato generato), l'utilizzo è pensato per praticità con uno smartphone.
+Software Gestionale pronto all'uso con backend in Python (FastAPI) e frontend (HTML5/Tailwind), Progettato per funzionare in modo sicuro con HTTPS all'interno di una rete locale, anche senza connessione internet, quindi il sistema girerà tutto su server locale, e potrà essere poi utilizzato dagli host della rete (con il relativo certificato generato), l'utilizzo è pensato per praticità con uno smartphone.
 
 ---
 
