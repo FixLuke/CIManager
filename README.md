@@ -20,7 +20,7 @@ Segui questi passaggi per clonare il progetto e rimettere in piedi l'intero ambi
 ### 1. Clonare il Progetto da GitHub
 Apri il terminale del nuovo computer nella cartella in cui vuoi salvare il software e digita:
 ```bash
-git clone [https://github.com/FixLuke/CIManager.git](https://github.com/FixLuke/CIManager.git)
+git clone https://github.com/FixLuke/CIManager.git
 cd CIManager
 ```
 
