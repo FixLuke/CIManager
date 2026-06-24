@@ -73,7 +73,7 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
 
 2) Assicurarsi che si è in venv (scritta in verde)
 
-3)Avviare il server con 
+3) Avviare il server con 
     ```
     uvicorn main:app --host 0.0.0.0 --port 8000 --ssl-keyfile "./localhost+2-key.pem" --ssl-certfile "./localhost+2.pem" --reload
      ```
@@ -82,7 +82,7 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
     ```
     https://localhost:8000
     ```
-4B) Da smartphone/Tablet
+5) Da smartphone/Tablet
 
     Accedere alla stessa rete dove è ospitato il server e digitare:
 
@@ -90,7 +90,7 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
     https://L_IP_LOCALE_DEL_NUOVO_PC:8000
     ```
 
-## Sincronizzare i nuovi SMartphone (una tantum dato che il certificato dovrebbe durare anni)
+## Sincronizzare i nuovi Smartphone (una tantum dato che il certificato dovrebbe durare anni)
 
 1) digita il comando "mkcert -CAROOT" per trovare il percorso nel quale risiede il file generato
 
@@ -105,5 +105,5 @@ I certificati "*.pem"  sono bloccati da  per motivi di sicurezza, quindi vanno r
 ----------------
 
 
-PER INVECE AVVIARE IL SERVER SU QUESTA STESSA MACCHINA E VEDERLO QUI (MAGARI PER TESTARLO):
+PER AVVIARE IL SERVER SU QUESTA STESSA MACCHINA E VEDERLO QUI (MAGARI PER TESTARLO):
 uvicorn main:app --reload
