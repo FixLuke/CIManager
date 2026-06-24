@@ -6,6 +6,7 @@
     <title>Gestionale Magazzino</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
 
@@ -92,13 +93,15 @@
 
         <div id="schermata-carrello" class="hidden max-w-4xl mx-auto">
             
-            <div class="bg-white p-4 rounded-lg shadow-md mb-6">
-                <label class="block text-sm text-gray-600 font-bold mb-2">Aggiungi al Carrello (Codice a Barre)</label>
-                <div class="flex gap-2">
+            <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1 w-full flex gap-2">
                     <input type="text" id="input-carrello" placeholder="Digita o scansiona per vendere..." class="w-full border border-green-300 p-3 rounded text-lg focus:ring-2 focus:ring-green-500 outline-none" onkeypress="gestisciInvioCarrello(event)">
                     <button type="button" onclick="aggiungiDaInputCarrello()" class="bg-green-600 text-white px-6 font-bold rounded hover:bg-green-700">Aggiungi</button>
                     <button type="button" onclick="avviaScanner('input-carrello', false, false, true)" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700">📷</button>
                 </div>
+                <button onclick="apriStorico()" class="bg-purple-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-purple-700 shadow-md transition whitespace-nowrap w-full sm:w-auto">
+                    🧾 Storico Vendite
+                </button>
             </div>
 
             <div class="bg-white rounded-lg shadow-md p-4 mb-6 min-h-[200px]">
@@ -126,17 +129,41 @@
         </div>
     </div>
 
+    <div id="modal-storico" class="hidden fixed inset-0 bg-black bg-opacity-75 z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-xl font-bold text-gray-800">🧾 Registro Vendite</h3>
+                <button onclick="document.getElementById('modal-storico').classList.add('hidden')" class="text-red-500 hover:bg-red-100 rounded-full w-8 h-8 font-bold text-xl flex items-center justify-center transition">&times;</button>
+            </div>
+            <div id="lista-storico" class="overflow-y-auto flex-1 flex flex-col gap-2">
+                </div>
+        </div>
+    </div>
+
+    <div id="modal-scontrino" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-sm">
+            <div class="flex justify-end gap-2 mb-4 border-b pb-2">
+                <button onclick="stampaScontrino()" class="bg-blue-600 text-white px-3 py-1 rounded font-bold hover:bg-blue-700 flex items-center gap-2">Stampa PDF</button>
+                <button onclick="document.getElementById('modal-scontrino').classList.add('hidden')" class="bg-red-500 text-white px-3 py-1 rounded font-bold hover:bg-red-600">Chiudi</button>
+            </div>
+            <div id="area-stampa-scontrino" class="p-4 border bg-yellow-50 font-mono text-sm text-gray-800">
+                </div>
+        </div>
+    </div>
+
     <script>
         const baseUrl = "/api/prodotti";
+        
+        // Variabili globali per scanner e logica UI
         let html5QrcodeScanner = null;
         let campoDestinazione = null;
-        
-        // Flag per decidere cosa fare dopo una scansione riuscita
         let avviaControlloEsistenza = false;
         let avviaRicercaAutomatica = false;
         let avviaAggiuntaCarrello = false;
+        
+        let carrello = {}; 
 
-        // --- GESTIONE SCHERMATE ---
+        // --- GESTIONE SCHERMATE E NAVIGAZIONE ---
         function cambiaSchermata(schermata) {
             document.getElementById('schermata-inserimento').classList.add('hidden');
             document.getElementById('schermata-magazzino').classList.add('hidden');
@@ -158,173 +185,16 @@
             } else if (schermata === 'carrello') {
                 document.getElementById('schermata-carrello').classList.remove('hidden');
                 document.getElementById('btn-carrello').classList.add('bg-green-800');
-                // Se apriamo il carrello, mettiamo subito a fuoco la barra di ricerca
                 setTimeout(() => document.getElementById('input-carrello').focus(), 100);
             }
         }
 
-        // --- LOGICA CARRELLO (NUOVA) ---
-        let carrello = {}; // Oggetto per memorizzare i prodotti in vendita
-
-        // Intercetta il tasto Invio (utile se usi una pistola barcode o scrivi a mano)
-        function gestisciInvioCarrello(event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                aggiungiDaInputCarrello();
-            }
-        }
-
-        function aggiungiDaInputCarrello() {
-            const input = document.getElementById('input-carrello');
-            const codice = input.value.trim();
-            if(codice) {
-                aggiungiProdottoAlCarrello(codice);
-                input.value = ''; // Svuota per la prossima scansione
-                input.focus();
-            }
-        }
-
-        async function aggiungiProdottoAlCarrello(codice) {
-            // Se esiste già nel carrello, proviamo ad aumentare la quantità
-            if (carrello[codice]) {
-                if (carrello[codice].quantita < carrello[codice].max_quantita) {
-                    carrello[codice].quantita++;
-                    aggiornaUICarrello();
-                } else {
-                    alert(`Hai raggiunto la quantità massima disponibile in magazzino per: ${carrello[codice].nome}`);
-                }
-                return;
-            }
-
-            // Altrimenti, andiamo a cercarlo nel Database
-            try {
-                const response = await fetch(`${baseUrl}/${codice}`);
-                if (response.ok) {
-                    const prodotto = await response.json();
-                    
-                    if (prodotto.quantita > 0) {
-                        carrello[codice] = {
-                            codice: prodotto.codice_a_barre,
-                            nome: prodotto.nome,
-                            prezzo: prodotto.prezzo_pubblico,
-                            quantita: 1, // Parte da 1
-                            max_quantita: prodotto.quantita,
-                            foto: prodotto.foto_path || 'https://via.placeholder.com/50'
-                        };
-                        aggiornaUICarrello();
-                        try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU').play(); } catch(e){}
-                    } else {
-                        alert(`Il prodotto "${prodotto.nome}" è Esaurito in magazzino!`);
-                    }
-                } else {
-                    alert("Prodotto non trovato nel Database!");
-                }
-            } catch (error) {
-                alert("Errore di connessione al server.");
-            }
-        }
-
-        function cambiaQuantitaCarrello(codice, variazione) {
-            if (!carrello[codice]) return;
-
-            const nuovaQuantita = carrello[codice].quantita + variazione;
-            
-            if (nuovaQuantita <= 0) {
-                // Rimuove dal carrello se scende a zero
-                delete carrello[codice];
-            } else if (nuovaQuantita <= carrello[codice].max_quantita) {
-                carrello[codice].quantita = nuovaQuantita;
-            } else {
-                alert("Quantità massima in magazzino raggiunta!");
-            }
-            aggiornaUICarrello();
-        }
-
-        function aggiornaUICarrello() {
-            const contenitore = document.getElementById('lista-carrello');
-            let totale = 0;
-            const codici = Object.keys(carrello);
-
-            if (codici.length === 0) {
-                contenitore.innerHTML = '<p class="text-gray-400 text-center italic mt-10">Il carrello è vuoto.</p>';
-                document.getElementById('totale-carrello').innerText = "€0.00";
-                return;
-            }
-
-            contenitore.innerHTML = ''; // Svuota la lista visiva
-            
-            codici.forEach(codice => {
-                const item = carrello[codice];
-                const subtotale = item.prezzo * item.quantita;
-                totale += subtotale;
-
-                contenitore.innerHTML += `
-                    <div class="flex items-center justify-between p-3 bg-gray-50 border rounded hover:bg-gray-100">
-                        <div class="flex items-center gap-4">
-                            <img src="${item.foto}" class="w-12 h-12 object-cover rounded shadow">
-                            <div>
-                                <h4 class="font-bold text-gray-800">${item.nome}</h4>
-                                <p class="text-sm text-gray-500">€${item.prezzo.toFixed(2)} x ${item.quantita}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-4">
-                            <strong class="text-lg text-blue-600 w-20 text-right">€${subtotale.toFixed(2)}</strong>
-                            <div class="flex items-center bg-white border rounded shadow-sm">
-                                <button onclick="cambiaQuantitaCarrello('${codice}', -1)" class="px-3 py-1 text-red-500 font-bold hover:bg-red-50">-</button>
-                                <span class="px-3 py-1 font-bold border-l border-r">${item.quantita}</span>
-                                <button onclick="cambiaQuantitaCarrello('${codice}', 1)" class="px-3 py-1 text-green-500 font-bold hover:bg-green-50">+</button>
-                            </div>
-                            <button onclick="cambiaQuantitaCarrello('${codice}', -9999)" class="text-red-400 hover:text-red-600" title="Rimuovi dal carrello">🗑️</button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            document.getElementById('totale-carrello').innerText = `€${totale.toFixed(2)}`;
-        }
-
-        async function concludiVendita() {
-            const codici = Object.keys(carrello);
-            if (codici.length === 0) {
-                alert("Il carrello è vuoto!");
-                return;
-            }
-
-            if (!confirm("Sei sicuro di voler concludere la vendita e scaricare il magazzino?")) return;
-
-            // Prepara i dati da inviare al backend
-            const datiVendita = codici.map(codice => ({
-                codice_a_barre: codice,
-                quantita: carrello[codice].quantita
-            }));
-
-            try {
-                const response = await fetch('/api/vendita', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(datiVendita)
-                });
-
-                if (response.ok) {
-                    alert("✅ Vendita conclusa! Magazzino aggiornato.");
-                    carrello = {}; // Svuota il carrello
-                    aggiornaUICarrello();
-                } else {
-                    const err = await response.json();
-                    alert("❌ Errore durante la vendita: " + err.detail);
-                }
-            } catch (error) {
-                alert("Errore di connessione al server.");
-            }
-        }
-
-        // --- GESTIONE FOTOCAMERA SCANNER (AGGIORNATA) ---
+        // --- GESTIONE FOTOCAMERA SCANNER ---
         function avviaScanner(idCampo, isControllo = false, isRicerca = false, isCarrello = false) {
             campoDestinazione = idCampo;
             avviaControlloEsistenza = isControllo;
             avviaRicercaAutomatica = isRicerca;
-            avviaAggiuntaCarrello = isCarrello; // Nuovo flag per la vendita
+            avviaAggiuntaCarrello = isCarrello;
             
             document.getElementById('scanner-modal').classList.remove('hidden');
             html5QrcodeScanner = new Html5Qrcode("reader");
@@ -340,13 +210,13 @@
         function onScanSuccess(testoDecodificato) {
             document.getElementById(campoDestinazione).value = testoDecodificato;
             chiudiScanner();
+            try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU').play(); } catch(e){}
             
-            // Smistamento logica post-scansione
             if(avviaControlloEsistenza) controllaSeEsiste();
             if(avviaRicercaAutomatica) filtraProdotti();
             if(avviaAggiuntaCarrello) {
                 aggiungiProdottoAlCarrello(testoDecodificato);
-                document.getElementById(campoDestinazione).value = ''; // Pulisce la barra
+                document.getElementById(campoDestinazione).value = ''; 
             }
         }
 
@@ -357,7 +227,7 @@
             document.getElementById('scanner-modal').classList.add('hidden');
         }
 
-        // --- RESTO DEL CODICE (INSERIMENTO E RICERCA MAGAZZINO) INVARIATO ---
+        // --- LOGICA INSERIMENTO (SCHERMATA 1) ---
         async function controllaSeEsiste() {
             const codice = document.getElementById('codice_a_barre').value.trim();
             if (codice.length === 0) { resettaStatoNuovo(); return; }
@@ -369,14 +239,18 @@
                     document.getElementById('p_acquisto').value = p.prezzo_acquisto;
                     document.getElementById('p_pubblico').value = p.prezzo_pubblico;
                     document.getElementById('quantita').value = 1;
+                    
                     document.getElementById('banner-esistente').classList.remove('hidden');
                     document.getElementById('anteprima-foto-esistente').src = p.foto_path ? p.foto_path : 'https://via.placeholder.com/150';
+                    
                     const btn = document.getElementById('btn-submit');
                     btn.className = "w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700 transition mt-6 text-lg shadow-lg";
                     btn.innerHTML = "📦 Rifornisci Magazzino (+ Quantità)";
                     document.getElementById('sezione-foto').classList.add('hidden');
-                } else { resettaStatoNuovo(); }
-            } catch (error) {}
+                } else { 
+                    resettaStatoNuovo(); 
+                }
+            } catch (error) { console.error(error); }
         }
 
         function resettaStatoNuovo() {
@@ -384,7 +258,7 @@
             document.getElementById('sezione-foto').classList.remove('hidden');
             const btn = document.getElementById('btn-submit');
             btn.className = "w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition mt-6 text-lg shadow-lg";
-            btn.innerHTML = "💾 Salva / Rifornisci";
+            btn.innerHTML = "💾 Salva Nuovo Prodotto";
         }
 
         document.getElementById('form-prodotto').addEventListener('submit', async (e) => {
@@ -401,9 +275,10 @@
                     const errorData = await response.json();
                     alert("❌ Errore: " + errorData.detail);
                 }
-            } catch (error) {}
+            } catch (error) { alert("Errore connessione"); }
         });
 
+        // --- LOGICA MAGAZZINO (SCHERMATA 2) ---
         async function caricaProdotti() {
             const contenitore = document.getElementById('lista-prodotti');
             contenitore.innerHTML = '<p class="text-blue-500 font-bold col-span-full">Caricamento...</p>';
@@ -468,6 +343,242 @@
                 await fetch(`${baseUrl}/${codice}`, { method: 'DELETE' });
                 caricaProdotti();
             }
+        }
+
+        // --- LOGICA CARRELLO / VENDITA (SCHERMATA 3) ---
+        function gestisciInvioCarrello(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                aggiungiDaInputCarrello();
+            }
+        }
+
+        function aggiungiDaInputCarrello() {
+            const input = document.getElementById('input-carrello');
+            const codice = input.value.trim();
+            if(codice) {
+                aggiungiProdottoAlCarrello(codice);
+                input.value = ''; 
+                input.focus();
+            }
+        }
+
+        async function aggiungiProdottoAlCarrello(codice) {
+            if (carrello[codice]) {
+                if (carrello[codice].quantita < carrello[codice].max_quantita) {
+                    carrello[codice].quantita++;
+                    aggiornaUICarrello();
+                } else {
+                    alert(`Hai raggiunto la quantità massima disponibile per: ${carrello[codice].nome}`);
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/${codice}`);
+                if (response.ok) {
+                    const prodotto = await response.json();
+                    
+                    if (prodotto.quantita > 0) {
+                        carrello[codice] = {
+                            codice: prodotto.codice_a_barre,
+                            nome: prodotto.nome,
+                            prezzo: prodotto.prezzo_pubblico,
+                            quantita: 1, 
+                            max_quantita: prodotto.quantita,
+                            foto: prodotto.foto_path || 'https://via.placeholder.com/50'
+                        };
+                        aggiornaUICarrello();
+                        try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU').play(); } catch(e){}
+                    } else {
+                        alert(`Il prodotto "${prodotto.nome}" è Esaurito!`);
+                    }
+                } else {
+                    alert("Prodotto non trovato!");
+                }
+            } catch (error) { alert("Errore di connessione."); }
+        }
+
+        function cambiaQuantitaCarrello(codice, variazione) {
+            if (!carrello[codice]) return;
+            const nuovaQuantita = carrello[codice].quantita + variazione;
+            
+            if (nuovaQuantita <= 0) {
+                delete carrello[codice];
+            } else if (nuovaQuantita <= carrello[codice].max_quantita) {
+                carrello[codice].quantita = nuovaQuantita;
+            } else {
+                alert("Quantità massima in magazzino raggiunta!");
+            }
+            aggiornaUICarrello();
+        }
+
+        function aggiornaUICarrello() {
+            const contenitore = document.getElementById('lista-carrello');
+            let totale = 0;
+            const codici = Object.keys(carrello);
+
+            if (codici.length === 0) {
+                contenitore.innerHTML = '<p class="text-gray-400 text-center italic mt-10">Il carrello è vuoto. Scansiona un prodotto per iniziare.</p>';
+                document.getElementById('totale-carrello').innerText = "€0.00";
+                return;
+            }
+
+            contenitore.innerHTML = ''; 
+            
+            codici.forEach(codice => {
+                const item = carrello[codice];
+                const subtotale = item.prezzo * item.quantita;
+                totale += subtotale;
+
+                contenitore.innerHTML += `
+                    <div class="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-50 border rounded hover:bg-gray-100 gap-4">
+                        <div class="flex items-center gap-4 w-full sm:w-auto">
+                            <img src="${item.foto}" class="w-12 h-12 object-cover rounded shadow">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${item.nome}</h4>
+                                <p class="text-sm text-gray-500">€${item.prezzo.toFixed(2)} x ${item.quantita}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-4">
+                            <strong class="text-lg text-blue-600 w-20 text-right">€${subtotale.toFixed(2)}</strong>
+                            <div class="flex items-center bg-white border rounded shadow-sm">
+                                <button onclick="cambiaQuantitaCarrello('${codice}', -1)" class="px-3 py-1 text-red-500 font-bold hover:bg-red-50">-</button>
+                                <span class="px-3 py-1 font-bold border-l border-r">${item.quantita}</span>
+                                <button onclick="cambiaQuantitaCarrello('${codice}', 1)" class="px-3 py-1 text-green-500 font-bold hover:bg-green-50">+</button>
+                            </div>
+                            <button onclick="cambiaQuantitaCarrello('${codice}', -9999)" class="text-red-400 hover:text-red-600 text-xl" title="Rimuovi dal carrello">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('totale-carrello').innerText = `€${totale.toFixed(2)}`;
+        }
+
+        async function concludiVendita() {
+            const codici = Object.keys(carrello);
+            if (codici.length === 0) { alert("Il carrello è vuoto!"); return; }
+            if (!confirm("Sei sicuro di voler concludere la vendita e scaricare il magazzino?")) return;
+
+            const datiVendita = codici.map(codice => ({
+                codice_a_barre: codice,
+                quantita: carrello[codice].quantita
+            }));
+
+            try {
+                const response = await fetch('/api/vendita', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datiVendita)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`✅ Vendita conclusa! Registrato Scontrino N. ${data.id_vendita}`);
+                    carrello = {}; 
+                    aggiornaUICarrello();
+                } else {
+                    const err = await response.json();
+                    alert("❌ Errore durante la vendita: " + err.detail);
+                }
+            } catch (error) { alert("Errore di connessione."); }
+        }
+
+        // --- LOGICA STORICO VENDITE E SCONTRINI PDF ---
+        async function apriStorico() {
+            document.getElementById('modal-storico').classList.remove('hidden');
+            const contenitore = document.getElementById('lista-storico');
+            contenitore.innerHTML = '<p class="text-center mt-4">Caricamento...</p>';
+            
+            try {
+                const res = await fetch('/api/vendite');
+                const vendite = await res.json();
+                contenitore.innerHTML = '';
+                
+                if(vendite.length === 0) {
+                    contenitore.innerHTML = '<p class="text-center text-gray-500 mt-4">Nessuna vendita registrata.</p>';
+                    return;
+                }
+
+                vendite.forEach(v => {
+                    const dataObj = new Date(v.data_ora);
+                    const dataFormattata = dataObj.toLocaleDateString('it-IT') + ' ' + dataObj.toLocaleTimeString('it-IT', {hour: '2-digit', minute:'2-digit'});
+                    
+                    contenitore.innerHTML += `
+                        <div class="flex justify-between items-center p-4 bg-gray-50 border rounded shadow-sm hover:bg-gray-100">
+                            <div>
+                                <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded uppercase font-bold tracking-wider">Scontrino #${v.id}</span>
+                                <p class="font-bold text-gray-800 mt-1">${dataFormattata}</p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <strong class="text-green-600 text-lg">€${v.totale.toFixed(2)}</strong>
+                                <button onclick="mostraScontrino(${v.id})" class="bg-blue-100 text-blue-700 px-4 py-2 rounded hover:bg-blue-200 font-semibold text-sm shadow-sm border border-blue-200 transition">Mostra</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) {
+                contenitore.innerHTML = '<p class="text-red-500 text-center font-bold">Errore caricamento storico.</p>';
+            }
+        }
+
+        async function mostraScontrino(id_vendita) {
+            try {
+                const res = await fetch(`/api/vendite/${id_vendita}`);
+                const vendita = await res.json();
+                
+                const dataObj = new Date(vendita.data_ora);
+                const areaStampa = document.getElementById('area-stampa-scontrino');
+                
+                let htmlScontrino = `
+                    <div class="text-center mb-4">
+                        <h2 class="font-bold text-xl uppercase tracking-widest">MAGAZZINO</h2>
+                        <p class="text-xs mt-1">Scontrino N. ${vendita.id}</p>
+                        <p class="text-xs">${dataObj.toLocaleDateString('it-IT')} - ${dataObj.toLocaleTimeString('it-IT')}</p>
+                    </div>
+                    <hr class="border-gray-800 border-dashed border-t-2 mb-3">
+                    <div class="flex flex-col gap-2 mb-3">
+                `;
+                
+                vendita.dettagli.forEach(d => {
+                    const subtotale = d.quantita * d.prezzo_unitario;
+                    htmlScontrino += `
+                        <div class="flex justify-between text-sm">
+                            <span class="truncate pr-2">${d.quantita}x ${d.nome_prodotto}</span>
+                            <span class="whitespace-nowrap">€${subtotale.toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+                
+                htmlScontrino += `
+                    </div>
+                    <hr class="border-gray-800 border-dashed border-t-2 mt-3 mb-3">
+                    <div class="flex justify-between font-bold text-lg">
+                        <span>TOTALE</span>
+                        <span>€${vendita.totale.toFixed(2)}</span>
+                    </div>
+                `;
+                
+                areaStampa.innerHTML = htmlScontrino;
+                document.getElementById('modal-scontrino').classList.remove('hidden');
+                
+            } catch(e) {
+                alert("Errore nel recupero dello scontrino.");
+            }
+        }
+
+        function stampaScontrino() {
+            const elemento = document.getElementById('area-stampa-scontrino');
+            const opt = {
+                margin:       0.2,
+                filename:     'scontrino.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: [3, 5], orientation: 'portrait' } 
+            };
+            html2pdf().set(opt).from(elemento).save();
         }
     </script>
 </body>

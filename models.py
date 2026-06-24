@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import Base
 
 class Prodotto(Base):
@@ -15,3 +17,24 @@ class Prodotto(Base):
     
     # Immagine
     foto_path = Column(String, nullable=True)
+
+class Vendita(Base):
+    __tablename__ = "vendite"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    data_ora = Column(DateTime, default=datetime.now)
+    totale = Column(Float)
+    
+    dettagli = relationship("DettaglioVendita", back_populates="vendita")
+
+class DettaglioVendita(Base):
+    __tablename__ = "dettagli_vendita"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    vendita_id = Column(Integer, ForeignKey("vendite.id"))
+    codice_a_barre = Column(String)
+    nome_prodotto = Column(String)  # Salviamo il nome nel caso in futuro cancelli il prodotto dal magazzino!
+    quantita = Column(Integer)
+    prezzo_unitario = Column(Float) # Salviamo il prezzo al momento della vendita
+    
+    vendita = relationship("Vendita", back_populates="dettagli")
